@@ -1,4 +1,4 @@
-# app.py
+## app.py
 import streamlit as st
 import requests
 from urllib.parse import quote
@@ -22,7 +22,6 @@ generate = st.button("Generate image")
 
 # --- helpers ---
 def build_pollinations_url(prompt: str, model: str, aspect: str, seed: int) -> str:
-    # Pollinations supports simple GET with prompt; add optional params for consistency
     base = "https://image.pollinations.ai/prompt/"
     encoded_prompt = quote(prompt.strip())
     params = []
@@ -48,7 +47,8 @@ def build_pollinations_url(prompt: str, model: str, aspect: str, seed: int) -> s
 
 @st.cache_data(show_spinner=False)
 def fetch_image_bytes(url: str) -> bytes:
-    resp = requests.get(url, timeout=60)
+    # shorter timeout so user doesn’t wait forever
+    resp = requests.get(url, timeout=30)
     resp.raise_for_status()
     return resp.content
 
@@ -57,17 +57,24 @@ if generate:
     if not prompt.strip():
         st.error("Please enter a prompt.")
     else:
-        with st.spinner("Generating..."):
+        with st.spinner("Generating your image... please wait ⏳"):
             try:
                 url = build_pollinations_url(prompt, model, aspect, seed)
                 img_bytes = fetch_image_bytes(url)
-                st.success("Image generated successfully!")
+                st.success("Image generated successfully! 🎉")
                 st.image(img_bytes, caption=prompt, use_column_width=True)
+
                 # Optional: show the URL for reproducibility
                 with st.expander("Image URL"):
                     st.code(url)
+
             except requests.HTTPError as e:
                 st.error(f"Generation failed: {e.response.status_code} {e.response.reason}")
-            except requests.RequestException as e:
-                st.error(f"Network error: {e}")
-              
+                if st.button("Retry"):
+                    st.experimental_rerun()
+
+            except requests.RequestException:
+                st.error("⚠️ Network error or timeout. Try again with a simpler prompt or click Retry.")
+                if st.button("Retry"):
+                    st.experimental_rerun()
+                    
